@@ -20,7 +20,7 @@ export type BlockType =
 
 export type WhiteboardTool = 'select' | 'pen' | 'eraser' | 'rectangle' | 'circle' | 'arrow' | 'line' | 'text' | 'sticky' | 'connector';
 
-export type ChartType = 'bar' | 'line' | 'pie' | 'doughnut' | 'horizontalBar';
+export type ChartType = 'bar' | 'line' | 'pie' | 'doughnut' | 'horizontalBar' | 'metric';
 
 export interface ChartDataset {
   label: string;
@@ -33,7 +33,14 @@ export interface ChartData {
   datasets: ChartDataset[];
 }
 
-export type EmbedMode = 'full' | 'first_block' | 'database';
+export interface ChartDataSource {
+  pageId: string;
+  groupBy?: 'status' | 'priority' | 'assignee' | 'count';
+  metricType?: 'total' | 'completed' | 'in_progress' | 'todo' | 'percentage';
+  asPercentage?: boolean;
+}
+
+export type EmbedMode = 'full' | 'first_block' | 'database' | 'kanban' | 'calendar' | 'gantt';
 
 export interface WhiteboardStroke {
   id: string;
@@ -110,6 +117,8 @@ export interface BlockProperty {
   chartType?: ChartType;
   chartData?: ChartData;
   chartTitle?: string;
+  chartDataSource?: ChartDataSource;
+  chartAsPercentage?: boolean;
   // Page embed block
   embedPageId?: string;
   embedMode?: EmbedMode;
@@ -131,6 +140,15 @@ export interface DatabaseColumn {
   options?: { id: string; label: string; color: string }[];
 }
 
+export type RecurrenceFrequency = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'custom_days';
+
+export interface TaskRecurrence {
+  frequency: RecurrenceFrequency;
+  daysOfWeek?: number[]; // 0: Dom, 1: Seg, 2: Ter, 3: Qua, 4: Qui, 5: Sex, 6: Sáb
+  interval?: number;
+  label?: string; // Ex: "Seg, Qua, Sex"
+}
+
 export interface DatabaseRow {
   id: string;
   title: string;
@@ -141,6 +159,7 @@ export interface DatabaseRow {
   tags?: string[];
   date?: string; // Data de Início ou Prazo
   endDate?: string; // Data de Término para Gantt
+  recurrence?: TaskRecurrence;
   assignee?: string;
   notes?: string;
   checked?: boolean;

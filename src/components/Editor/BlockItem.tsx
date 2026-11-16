@@ -9,6 +9,7 @@ import { WhiteboardView } from '../Whiteboard/WhiteboardView';
 import { ChartBlock } from './ChartBlock';
 import { PageEmbedBlock } from './PageEmbedBlock';
 import { renderMarkdownBlock } from '../../utils/markdownParser';
+import { TextSelectionToolbar, type TextFormatAction } from './TextSelectionToolbar';
 
 interface BlockItemProps {
   block: Block;
@@ -18,6 +19,7 @@ interface BlockItemProps {
   pages?: Page[];
   onSelectPage?: (pageId: string) => void;
   onCreateSubpage?: (title: string) => void;
+  onUpdatePage?: (pageId: string, updates: Partial<Page>) => void;
   onUpdate: (updatedBlock: Block) => void;
   onDelete: (id: string) => void;
   onAddBelow: (id: string, type?: BlockType) => void;
@@ -146,6 +148,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
   pages = [],
   onSelectPage,
   onCreateSubpage,
+  onUpdatePage,
   onUpdate,
   onDelete,
   onAddBelow,
@@ -171,6 +174,82 @@ export const BlockItem: React.FC<BlockItemProps> = ({
   const [pageSearchQuery, setPageSearchQuery] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
   const [mdPreview, setMdPreview] = useState(false);
+
+  // Floating text selection toolbar (Matches Screenshot 3)
+  const [selectionToolbar, setSelectionToolbar] = useState<{
+    isOpen: boolean;
+    position: { top: number; left: number };
+    start: number;
+    end: number;
+  }>({ isOpen: false, position: { top: 0, left: 0 }, start: 0, end: 0 });
+
+  const handleSelectText = () => {
+    if (!textareaRef.current) return;
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    if (start !== end && start !== undefined && end !== undefined) {
+      const rect = textareaRef.current.getBoundingClientRect();
+      setSelectionToolbar({
+        isOpen: true,
+        position: {
+          top: rect.top - 44,
+          left: Math.max(10, rect.left + 15),
+        },
+        start,
+        end,
+      });
+    } else {
+      if (selectionToolbar.isOpen) {
+        setSelectionToolbar(prev => ({ ...prev, isOpen: false }));
+      }
+    }
+  };
+
+  const handleApplyFormat = (action: TextFormatAction, param?: string) => {
+    if (!textareaRef.current) return;
+    const { start, end } = selectionToolbar;
+    const content = block.content;
+    const before = content.slice(0, start);
+    const selected = content.slice(start, end);
+    const after = content.slice(end);
+
+    let newSelected = selected;
+    if (action === 'bold') {
+      newSelected = selected.startsWith('**') && selected.endsWith('**')
+        ? selected.slice(2, -2)
+        : `**${selected}**`;
+    } else if (action === 'italic') {
+      newSelected = selected.startsWith('*') && selected.endsWith('*')
+        ? selected.slice(1, -1)
+        : `*${selected}*`;
+    } else if (action === 'underline') {
+      newSelected = selected.startsWith('<u>') && selected.endsWith('</u>')
+        ? selected.slice(3, -4)
+        : `<u>${selected}</u>`;
+    } else if (action === 'strike') {
+      newSelected = selected.startsWith('~~') && selected.endsWith('~~')
+        ? selected.slice(2, -2)
+        : `~~${selected}~~`;
+    } else if (action === 'code') {
+      newSelected = selected.startsWith('`') && selected.endsWith('`')
+        ? selected.slice(1, -1)
+        : `\`${selected}\``;
+    } else if (action === 'math') {
+      newSelected = selected.startsWith('$') && selected.endsWith('$')
+        ? selected.slice(1, -1)
+        : `$${selected}$`;
+    } else if (action === 'link') {
+      newSelected = `[${selected}](${param || 'https://'})`;
+    } else if (action === 'color') {
+      newSelected = `<span style="color:${param}">${selected}</span>`;
+    } else if (action === 'clear') {
+      newSelected = selected.replace(/(\*\*|\*|~~|`|\$|<u>|<\/u>|<span[^>]*>|<\/span>)/g, '');
+    }
+
+    const updatedContent = before + newSelected + after;
+    onUpdate({ ...block, content: updatedContent });
+    setSelectionToolbar(prev => ({ ...prev, isOpen: false }));
+  };
 
   // Auto-resize textarea according to content
   const autoResize = () => {
@@ -568,6 +647,9 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
+              onSelect={handleSelectText}
+              onMouseUp={handleSelectText}
+              onKeyUp={handleSelectText}
             />
           </div>
         )}
@@ -585,6 +667,9 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
+              onSelect={handleSelectText}
+              onMouseUp={handleSelectText}
+              onKeyUp={handleSelectText}
             />
           </div>
         )}
@@ -602,6 +687,9 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
+              onSelect={handleSelectText}
+              onMouseUp={handleSelectText}
+              onKeyUp={handleSelectText}
             />
           </div>
         )}
@@ -1119,9 +1207,14 @@ export const BlockItem: React.FC<BlockItemProps> = ({
             chartType={block.properties?.chartType || 'bar'}
             chartData={block.properties?.chartData || { labels: [], datasets: [] }}
             chartTitle={block.properties?.chartTitle}
+            chartDataSource={block.properties?.chartDataSource}
+            chartAsPercentage={block.properties?.chartAsPercentage}
+            pages={pages}
             onChangeType={(chartType) => onUpdate({ ...block, properties: { ...block.properties, chartType } })}
             onChangeData={(chartData) => onUpdate({ ...block, properties: { ...block.properties, chartData } })}
             onChangeTitle={(chartTitle) => onUpdate({ ...block, properties: { ...block.properties, chartTitle } })}
+            onChangeDataSource={(chartDataSource) => onUpdate({ ...block, properties: { ...block.properties, chartDataSource } })}
+            onChangeAsPercentage={(chartAsPercentage) => onUpdate({ ...block, properties: { ...block.properties, chartAsPercentage } })}
           />
         )}
 
@@ -1133,6 +1226,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
             pages={pages}
             onSelectPage={onSelectPage}
             onChangeEmbed={(embedPageId, embedMode) => onUpdate({ ...block, properties: { ...block.properties, embedPageId, embedMode } })}
+            onUpdatePage={onUpdatePage}
           />
         )}
 
@@ -1298,6 +1392,9 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
+              onSelect={handleSelectText}
+              onMouseUp={handleSelectText}
+              onKeyUp={handleSelectText}
               onBlur={() => {
                 if (/[*_`~\[]/.test(block.content)) {
                   setMdPreview(true);
@@ -1307,6 +1404,17 @@ export const BlockItem: React.FC<BlockItemProps> = ({
           )
         )}
       </div>
+
+      {/* Floating Markdown / Text Selection Toolbar (Matches Screenshot 3) */}
+      {selectionToolbar.isOpen && (
+        <TextSelectionToolbar
+          position={selectionToolbar.position}
+          currentBlockType={block.type}
+          onApplyFormat={handleApplyFormat}
+          onChangeBlockType={(newType) => onUpdate({ ...block, type: newType })}
+          onClose={() => setSelectionToolbar(prev => ({ ...prev, isOpen: false }))}
+        />
+      )}
     </div>
   );
 };

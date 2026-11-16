@@ -18,7 +18,10 @@ import { SettingsModal } from './components/Modals/SettingsModal';
 import { TrashModal } from './components/Modals/TrashModal';
 import { CoverPickerModal } from './components/Modals/CoverPickerModal';
 import { EmojiPickerModal } from './components/Modals/EmojiPickerModal';
+import { NotificationBell } from './components/Notifications/NotificationBell';
+import { RowPageModal } from './components/Database/RowPageModal';
 import { useIsMobile } from './hooks/useIsMobile';
+import type { DatabaseRow } from './types';
 
 export const App: React.FC = () => {
   const isMobile = useIsMobile();
@@ -31,6 +34,38 @@ export const App: React.FC = () => {
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [isCoverPickerOpen, setIsCoverPickerOpen] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [openedModalTask, setOpenedModalTask] = useState<{ pageId: string; taskId: string } | null>(null);
+
+  const handleMovePage = (pageId: string, targetParentId: string | null) => {
+    setWorkspace(prev => ({
+      ...prev,
+      pages: prev.pages.map(p => p.id === pageId ? { ...p, parentId: targetParentId, updatedAt: new Date().toISOString() } : p)
+    }));
+  };
+
+  const updatePageById = (pageId: string, updates: Partial<Page>) => {
+    setWorkspace(prev => ({
+      ...prev,
+      pages: prev.pages.map(p => p.id === pageId ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p)
+    }));
+  };
+
+  const handleUpdateTask = (pageId: string, taskId: string, updates: Partial<DatabaseRow>) => {
+    setWorkspace(prev => ({
+      ...prev,
+      pages: prev.pages.map(p => {
+        if (p.id !== pageId || !p.databaseConfig) return p;
+        return {
+          ...p,
+          databaseConfig: {
+            ...p.databaseConfig,
+            rows: p.databaseConfig.rows.map(r => r.id === taskId ? { ...r, ...updates } : r)
+          },
+          updatedAt: new Date().toISOString()
+        };
+      })
+    }));
+  };
 
   // Sync with Supabase on mount
   useEffect(() => {
@@ -279,6 +314,7 @@ export const App: React.FC = () => {
         onDeletePage={handleDeletePage}
         onToggleFavorite={handleToggleFavorite}
         onDuplicatePage={handleDuplicatePage}
+        onMovePage={handleMovePage}
         onToggleCollapse={() => {
           setWorkspace(prev => ({
             ...prev,
@@ -337,6 +373,17 @@ export const App: React.FC = () => {
           </div>
 
           <div className="top-actions">
+            {/* Task Notifications Alert Bell */}
+            <NotificationBell
+              pages={workspace.pages || []}
+              onSelectPage={setActivePageId}
+              onOpenTask={(pageId, taskId) => {
+                setActivePageId(pageId);
+                setOpenedModalTask({ pageId, taskId });
+              }}
+              onUpdateTask={handleUpdateTask}
+            />
+
             {/* Supabase Cloud Status Indicator */}
             {isSupabaseConfigured() && (
               <div
@@ -485,6 +532,7 @@ export const App: React.FC = () => {
                   pages={workspace.pages}
                   onSelectPage={setActivePageId}
                   onCreateSubpage={() => handleCreatePage(activePage.id, 'document')}
+                  onUpdatePage={updatePageById}
                   onChange={(blocks) => updateActivePage({ blocks })}
                 />
               ) : activePage.type === 'whiteboard' ? (
@@ -573,6 +621,40 @@ export const App: React.FC = () => {
         onClose={() => setIsEmojiPickerOpen(false)}
         onSelectEmoji={(emoji) => updateActivePage({ icon: emoji })}
       />
+
+      {/* Global Task Modal from Bell or Notifications */}
+      {openedModalTask && (() => {
+        const targetPage = workspace.pages.find(p => p.id === openedModalTask.pageId);
+        const targetRow = targetPage?.databaseConfig?.rows.find(r => r.id === openedModalTask.taskId);
+        if (!targetPage || !targetRow) return null;
+
+        return (
+          <RowPageModal
+            isOpen={true}
+            row={targetRow}
+            databaseTitle={targetPage.title}
+            statuses={targetPage.databaseConfig?.statuses}
+            onClose={() => setOpenedModalTask(null)}
+            onUpdateRow={(updated) => handleUpdateTask(targetPage.id, updated.id, updated)}
+            onDeleteRow={(id) => {
+              setWorkspace(prev => ({
+                ...prev,
+                pages: prev.pages.map(p => {
+                  if (p.id !== targetPage.id || !p.databaseConfig) return p;
+                  return {
+                    ...p,
+                    databaseConfig: {
+                      ...p.databaseConfig,
+                      rows: p.databaseConfig.rows.filter(r => r.id !== id)
+                    }
+                  };
+                })
+              }));
+              setOpenedModalTask(null);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 };

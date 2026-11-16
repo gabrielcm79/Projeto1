@@ -17,6 +17,7 @@ interface SidebarProps {
   onDeletePage: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   onDuplicatePage: (id: string) => void;
+  onMovePage?: (pageId: string, targetParentId: string | null) => void;
   onToggleCollapse: () => void;
   onToggleTheme: () => void;
   onOpenSettings: () => void;
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeletePage,
   onToggleFavorite,
   onDuplicatePage,
+  onMovePage,
   onToggleCollapse,
   onToggleTheme,
   onOpenSettings,
@@ -111,7 +113,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Main Pages Hierarchy */}
         <div>
-          <div className="sidebar-section-title">
+          <div
+            className="sidebar-section-title"
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const draggedPageId = e.dataTransfer.getData('text/plain');
+              if (draggedPageId && onMovePage) onMovePage(draggedPageId, null);
+            }}
+            title="Solte aqui para mover para a raiz"
+          >
             <span>Páginas</span>
             <button
               className="sidebar-btn-icon"
@@ -122,7 +133,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          <div className="page-tree">
+          <div
+            className="page-tree"
+            onDragOver={(e) => { e.preventDefault(); }}
+            onDrop={(e) => {
+              // If dropped in the empty space of page tree, move to root
+              if (e.target === e.currentTarget) {
+                const draggedPageId = e.dataTransfer.getData('text/plain');
+                if (draggedPageId && onMovePage) onMovePage(draggedPageId, null);
+              }
+            }}
+          >
             {topLevelPages.map(page => (
               <PageItemView
                 key={page.id}
@@ -135,6 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onDeletePage={onDeletePage}
                 onToggleFavorite={onToggleFavorite}
                 onDuplicatePage={onDuplicatePage}
+                onMovePage={onMovePage}
               />
             ))}
 

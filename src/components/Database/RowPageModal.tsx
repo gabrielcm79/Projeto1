@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { 
   X, Maximize2, Minimize2, Calendar, User, 
-  Smile, Image as ImageIcon, Trash2, Tag, Flag, Clock
+  Smile, Image as ImageIcon, Trash2, Tag, Flag, Clock, Repeat
 } from 'lucide-react';
 import { DEFAULT_STATUSES } from '../../types';
 import type { DatabaseRow, Block, StatusOption } from '../../types';
+import { DAYS_OF_WEEK_LABELS, formatRecurrenceLabel } from '../../utils/recurrence';
 import { BlockEditor } from '../Editor/BlockEditor';
 import { EmojiPickerModal } from '../Modals/EmojiPickerModal';
 import { CoverPickerModal } from '../Modals/CoverPickerModal';
@@ -287,6 +288,132 @@ export const RowPageModal: React.FC<RowPageModalProps> = ({
                   value={row.endDate || ''}
                   onChange={(e) => onUpdateRow({ ...row, endDate: e.target.value })}
                 />
+              </div>
+
+              {/* Recurrence */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+                <Repeat size={14} />
+                <span>Recorrência</span>
+              </div>
+              <div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <select
+                      style={{
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '4px 10px',
+                        color: 'var(--text-primary)',
+                        fontSize: '12.5px',
+                        cursor: 'pointer'
+                      }}
+                      value={row.recurrence?.frequency || 'none'}
+                      onChange={(e) => {
+                        const freq = e.target.value as any;
+                        if (freq === 'none') {
+                          onUpdateRow({ ...row, recurrence: undefined });
+                        } else if (freq === 'custom_days' || freq === 'weekly') {
+                          onUpdateRow({
+                            ...row,
+                            recurrence: {
+                              frequency: freq,
+                              daysOfWeek: row.recurrence?.daysOfWeek && row.recurrence.daysOfWeek.length > 0 ? row.recurrence.daysOfWeek : [1, 3, 5] // Default Seg, Qua, Sex
+                            }
+                          });
+                        } else {
+                          onUpdateRow({
+                            ...row,
+                            recurrence: { frequency: freq }
+                          });
+                        }
+                      }}
+                    >
+                      <option value="none">Não se repete</option>
+                      <option value="daily">Todos os dias</option>
+                      <option value="weekdays">Seg a Sex (Dias úteis)</option>
+                      <option value="custom_days">Dias específicos (ex: Seg, Qua, Sex)</option>
+                      <option value="monthly">Mensalmente</option>
+                    </select>
+
+                    {/* Quick preset button for Seg, Qua, Sex */}
+                    <button
+                      type="button"
+                      className="action-chip"
+                      style={{
+                        fontSize: '11px',
+                        padding: '3px 8px',
+                        backgroundColor: (row.recurrence?.frequency === 'custom_days' && JSON.stringify(row.recurrence?.daysOfWeek?.slice().sort()) === JSON.stringify([1, 3, 5]))
+                          ? 'var(--accent-soft)'
+                          : 'transparent',
+                        borderColor: (row.recurrence?.frequency === 'custom_days' && JSON.stringify(row.recurrence?.daysOfWeek?.slice().sort()) === JSON.stringify([1, 3, 5]))
+                          ? 'var(--accent)'
+                          : 'var(--border-color)'
+                      }}
+                      onClick={() => {
+                        onUpdateRow({
+                          ...row,
+                          recurrence: {
+                            frequency: 'custom_days',
+                            daysOfWeek: [1, 3, 5],
+                            label: 'Seg, Qua, Sex'
+                          }
+                        });
+                      }}
+                    >
+                      🔁 Seg, Qua, Sex
+                    </button>
+                  </div>
+
+                  {/* Days of week selector if custom_days or weekly */}
+                  {(row.recurrence?.frequency === 'custom_days' || row.recurrence?.frequency === 'weekly') && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      {DAYS_OF_WEEK_LABELS.map((label, idx) => {
+                        const isSelected = row.recurrence?.daysOfWeek?.includes(idx);
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              const currentDays = row.recurrence?.daysOfWeek || [];
+                              const newDays = isSelected
+                                ? currentDays.filter(d => d !== idx)
+                                : [...currentDays, idx].sort();
+                              onUpdateRow({
+                                ...row,
+                                recurrence: {
+                                  frequency: row.recurrence?.frequency || 'custom_days',
+                                  daysOfWeek: newDays
+                                }
+                              });
+                            }}
+                            style={{
+                              width: '32px',
+                              height: '28px',
+                              borderRadius: 'var(--radius-sm)',
+                              border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border-color)',
+                              background: isSelected ? 'var(--accent)' : 'var(--bg-card)',
+                              color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                              fontSize: '11.5px',
+                              fontWeight: isSelected ? 600 : 400,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.15s'
+                            }}
+                            title={`Repetir aos ${label}`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>
+                        {formatRecurrenceLabel(row.recurrence)}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Assignee */}

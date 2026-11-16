@@ -9,6 +9,7 @@ interface BlockEditorProps {
   pages?: Page[];
   onSelectPage?: (pageId: string) => void;
   onCreateSubpage?: (title: string) => void;
+  onUpdatePage?: (pageId: string, updates: Partial<Page>) => void;
 }
 
 export const BlockEditor: React.FC<BlockEditorProps> = ({
@@ -17,6 +18,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
   pages = [],
   onSelectPage,
   onCreateSubpage,
+  onUpdatePage,
 }) => {
   const [slashState, setSlashState] = useState<{
     isOpen: boolean;
@@ -288,6 +290,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
           pages={pages}
           onSelectPage={onSelectPage}
           onCreateSubpage={onCreateSubpage}
+          onUpdatePage={onUpdatePage}
           onUpdate={handleUpdateBlock}
           onDelete={handleDeleteBlock}
           onAddBelow={handleAddBelow}
