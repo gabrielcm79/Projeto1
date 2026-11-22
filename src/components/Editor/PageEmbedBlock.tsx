@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Page, EmbedMode, DatabaseConfig, DatabaseRow } from '../../types';
-import { ExternalLink, ChevronDown, Layers, Eye, Table, Kanban, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { ExternalLink, ChevronDown, Layers, Eye, Table, Kanban, Calendar as CalendarIcon, Clock, Check } from 'lucide-react';
 import { KanbanBoardView } from '../Database/KanbanBoardView';
 import { CalendarView } from '../Database/CalendarView';
 import { GanttView } from '../Database/GanttView';
@@ -47,6 +47,19 @@ export const PageEmbedBlock: React.FC<PageEmbedBlockProps> = ({
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState('');
   const [openedRowId, setOpenedRowId] = useState<string | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // Fecha o picker ao clicar fora
+  useEffect(() => {
+    if (!showPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowPicker(false);
+      }
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [showPicker]);
 
   const safePages = pages || [];
   const targetPage = safePages.find(p => p.id === embedPageId && !p.isDeleted);
@@ -285,13 +298,18 @@ export const PageEmbedBlock: React.FC<PageEmbedBlockProps> = ({
                 <ChevronDown size={11} />
               </button>
               {showPicker && (
-                <div style={{
-                  position: 'absolute', top: '100%', right: 0, marginTop: '4px',
-                  background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)',
-                  padding: '6px', zIndex: 80, width: '220px'
-                }}>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', padding: '4px 8px' }}>
+                <div
+                  ref={pickerRef}
+                  style={{
+                    position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                    background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-xl)',
+                    padding: '8px', zIndex: 1000, width: '250px',
+                    maxHeight: '400px', overflowY: 'auto',
+                    display: 'flex', flexDirection: 'column', gap: '2px'
+                  }}
+                >
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', padding: '4px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                     Visualização:
                   </div>
                   {availableModes.map(mode => (
@@ -299,36 +317,44 @@ export const PageEmbedBlock: React.FC<PageEmbedBlockProps> = ({
                       key={mode}
                       className="slash-menu-item"
                       style={{
-                        padding: '6px 10px',
+                        padding: '7px 10px',
                         fontSize: '12.5px',
                         fontWeight: embedMode === mode ? 600 : 400,
                         color: embedMode === mode ? 'var(--accent)' : undefined,
+                        background: embedMode === mode ? 'var(--accent-soft)' : undefined,
+                        borderRadius: 'var(--radius-sm)',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        gap: '8px',
+                        justifyContent: 'space-between'
                       }}
                       onClick={() => { onChangeEmbed?.(targetPage.id, mode); setShowPicker(false); }}
                     >
-                      {MODE_ICONS[mode]}
-                      <span>{MODE_LABELS[mode]}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {MODE_ICONS[mode]}
+                        <span>{MODE_LABELS[mode]}</span>
+                      </span>
+                      {embedMode === mode && <Check size={12} />}
                     </div>
                   ))}
 
-                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '4px', marginTop: '4px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', padding: '4px 8px' }}>
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '6px', marginTop: '4px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', padding: '4px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                       Trocar página:
                     </div>
-                    {pages.filter(p => !p.isDeleted && p.id !== targetPage.id).slice(0, 5).map(p => (
-                      <div
-                        key={p.id}
-                        className="slash-menu-item"
-                        style={{ padding: '5px 10px', fontSize: '12px' }}
-                        onClick={() => { onChangeEmbed?.(p.id, embedMode); setShowPicker(false); }}
-                      >
-                        <span>{p.icon}</span>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
-                      </div>
-                    ))}
+                    <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      {pages.filter(p => !p.isDeleted && p.id !== targetPage.id).map(p => (
+                        <div
+                          key={p.id}
+                          className="slash-menu-item"
+                          style={{ padding: '5px 10px', fontSize: '12px', borderRadius: 'var(--radius-sm)' }}
+                          onClick={() => { onChangeEmbed?.(p.id, embedMode); setShowPicker(false); }}
+                        >
+                          <span>{p.icon || '📄'}</span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title || 'Sem título'}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

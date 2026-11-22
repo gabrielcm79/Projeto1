@@ -1305,7 +1305,8 @@ body {
   border: 1px solid var(--border-color);
   background: var(--bg-secondary);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow: visible; /* Garante que os menus suspensos e dropdowns não sejam cortados */
+  position: relative;
   box-shadow: var(--shadow-sm);
   transition: border-color 0.15s ease;
 }
@@ -1318,13 +1319,20 @@ body {
   padding: 10px 14px;
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-subtle);
+  border-top-left-radius: calc(var(--radius-md) - 1px);
+  border-top-right-radius: calc(var(--radius-md) - 1px);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
+  z-index: 10;
 }
 
 .page-embed-content {
   background: var(--bg-card);
+  border-bottom-left-radius: calc(var(--radius-md) - 1px);
+  border-bottom-right-radius: calc(var(--radius-md) - 1px);
+  overflow: hidden;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
