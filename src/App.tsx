@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, Download, Share2, Star, ChevronRight, Cloud, CloudOff, CloudUpload
 } from 'lucide-react';
@@ -67,22 +67,39 @@ export const App: React.FC = () => {
     }));
   };
 
+  const isCloudLoadedRef = useRef(false);
+
   // Sync with Supabase on mount
   useEffect(() => {
     const unsub = subscribeSyncStatus((st) => setCloudStatus(st));
 
     if (isSupabaseConfigured()) {
       fetchWorkspaceFromSupabase('default').then(remote => {
+        isCloudLoadedRef.current = true;
         if (remote && remote.pages && remote.pages.length > 0) {
-          setWorkspace(remote);
+          setWorkspace(prev => {
+            const remotePageIds = new Set(remote.pages.map(p => p.id));
+            const localOnlyPages = prev.pages.filter(p => !remotePageIds.has(p.id) && !p.id.startsWith('page-crm-hub') && !p.id.startsWith('page-welcome'));
+            const mergedPages = localOnlyPages.length > 0 ? [...remote.pages, ...localOnlyPages] : remote.pages;
+            return {
+              ...remote,
+              pages: mergedPages,
+              activePageId: remote.activePageId || prev.activePageId || mergedPages[0]?.id || ''
+            };
+          });
           if (remote.activePageId) {
             setActivePageId(remote.activePageId);
           }
         } else {
           // Initialize remote
-          saveWorkspace(workspace);
+          saveWorkspace(workspace, true);
         }
+      }).catch(err => {
+        console.error('Erro na sincronização inicial:', err);
+        isCloudLoadedRef.current = true;
       });
+    } else {
+      isCloudLoadedRef.current = true;
     }
 
     return () => unsub();
@@ -90,7 +107,7 @@ export const App: React.FC = () => {
 
   // Auto-save whenever workspace changes
   useEffect(() => {
-    saveWorkspace(workspace);
+    saveWorkspace(workspace, isCloudLoadedRef.current);
     document.documentElement.setAttribute('data-theme', workspace?.settings?.theme || 'dark');
   }, [workspace]);
 

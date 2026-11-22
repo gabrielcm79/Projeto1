@@ -4,8 +4,8 @@ import type { WorkspaceData } from '../types';
  * Supabase Storage Integration Layer
  */
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://oqlciokaqrnfuwysilya.supabase.co';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_-yHNNdIQwFyCUf0pX_SWeQ_6pAw-aCq';
 
 export const isSupabaseConfigured = (): boolean => {
   return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);

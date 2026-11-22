@@ -54,10 +54,14 @@ export function loadWorkspace(): WorkspaceData {
   }
 }
 
-export function saveWorkspace(data: WorkspaceData): void {
+export function saveWorkspace(data: WorkspaceData, syncToCloud = true): void {
   try {
+    const existing = localStorage.getItem(STORAGE_KEY);
+    if (existing) {
+      localStorage.setItem('projeto1_workspace_backup', existing);
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    if (isSupabaseConfigured()) {
+    if (syncToCloud && isSupabaseConfigured()) {
       queueSaveWorkspaceToSupabase(data);
     }
   } catch (err) {
