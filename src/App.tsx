@@ -7,7 +7,7 @@ import {
   loadWorkspace, saveWorkspace, exportWorkspaceJson, 
   exportPageMarkdown, resetWorkspace 
 } from './storage/db';
-import { isSupabaseConfigured, fetchWorkspaceFromSupabase, subscribeSyncStatus } from './storage/supabase';
+import { isSupabaseConfigured, fetchWorkspaceFromSupabase, subscribeSyncStatus, flushSaveToSupabase } from './storage/supabase';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { PageHeader } from './components/Editor/PageHeader';
 import { BlockEditor } from './components/Editor/BlockEditor';
@@ -68,19 +68,41 @@ export const App: React.FC = () => {
   };
 
   const isCloudLoadedRef = useRef(false);
+  const workspaceRef = useRef(workspace);
+
+  // Keep ref in sync for use in event handlers
+  useEffect(() => {
+    workspaceRef.current = workspace;
+  }, [workspace]);
 
   // Sync with Supabase on mount
   useEffect(() => {
     const unsub = subscribeSyncStatus((st) => setCloudStatus(st));
+
+    // Save immediately before the page unloads (refresh, tab close)
+    const handleBeforeUnload = () => {
+      // Save to localStorage synchronously
+      localStorage.setItem('projeto1_workspace_v1', JSON.stringify(workspaceRef.current));
+      // Best-effort async flush to Supabase
+      flushSaveToSupabase();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     if (isSupabaseConfigured()) {
       fetchWorkspaceFromSupabase('default').then(remote => {
         isCloudLoadedRef.current = true;
         if (remote && remote.pages && remote.pages.length > 0) {
           setWorkspace(prev => {
+            // Keep pages that exist only locally (created before cloud loaded)
             const remotePageIds = new Set(remote.pages.map(p => p.id));
-            const localOnlyPages = prev.pages.filter(p => !remotePageIds.has(p.id) && !p.id.startsWith('page-crm-hub') && !p.id.startsWith('page-welcome'));
-            const mergedPages = localOnlyPages.length > 0 ? [...remote.pages, ...localOnlyPages] : remote.pages;
+            const localOnlyPages = prev.pages.filter(p =>
+              !remotePageIds.has(p.id) &&
+              !p.id.startsWith('page-crm-hub') &&
+              !p.id.startsWith('page-welcome')
+            );
+            const mergedPages = localOnlyPages.length > 0
+              ? [...remote.pages, ...localOnlyPages]
+              : remote.pages;
             return {
               ...remote,
               pages: mergedPages,
@@ -91,7 +113,7 @@ export const App: React.FC = () => {
             setActivePageId(remote.activePageId);
           }
         } else {
-          // Initialize remote
+          // No remote data yet — push local state to Supabase
           saveWorkspace(workspace, true);
         }
       }).catch(err => {
@@ -102,7 +124,10 @@ export const App: React.FC = () => {
       isCloudLoadedRef.current = true;
     }
 
-    return () => unsub();
+    return () => {
+      unsub();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, []);
 
   // Auto-save whenever workspace changes

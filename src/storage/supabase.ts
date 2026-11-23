@@ -57,10 +57,37 @@ export async function fetchWorkspaceFromSupabase(workspaceId = 'default'): Promi
 
 // Debounce timer to avoid multiple HTTP requests while typing rapidly
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingWorkspace: WorkspaceData | null = null;
+
+// Saves immediately without debounce — used on page unload
+export async function flushSaveToSupabase(): Promise<void> {
+  if (!pendingWorkspace || !isSupabaseConfigured()) return;
+  const workspace = pendingWorkspace;
+  pendingWorkspace = null;
+  if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/workspaces`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        id: 'default',
+        name: workspace.settings.name,
+        data: workspace,
+        updated_at: new Date().toISOString()
+      })
+    });
+  } catch { /* best effort */ }
+}
 
 export function queueSaveWorkspaceToSupabase(workspace: WorkspaceData, workspaceId = 'default'): void {
   if (!isSupabaseConfigured()) return;
 
+  pendingWorkspace = workspace; // always keep latest
   notifyStatus('saving');
 
   if (debounceTimer) {
@@ -68,6 +95,7 @@ export function queueSaveWorkspaceToSupabase(workspace: WorkspaceData, workspace
   }
 
   debounceTimer = setTimeout(async () => {
+    pendingWorkspace = null;
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/workspaces`, {
         method: 'POST',
@@ -94,5 +122,5 @@ export function queueSaveWorkspaceToSupabase(workspace: WorkspaceData, workspace
       console.error('Erro ao salvar no Supabase:', err);
       notifyStatus('error');
     }
-  }, 1000);
+  }, 500); // reduzido de 1000ms para 500ms
 }

@@ -33,19 +33,14 @@ export function loadWorkspace(): WorkspaceData {
       updatedAt: p.updatedAt || new Date().toISOString()
     }));
 
-    // Merge missing template pages if user had earlier session
-    const existingIds = new Set(sanitizedPages.map((p: Page) => p.id));
-    const missingPages = INITIAL_WORKSPACE.pages.filter(p => !existingIds.has(p.id));
-    const mergedPages = missingPages.length > 0 ? [...missingPages, ...sanitizedPages] : sanitizedPages;
-
-    const validActivePageId = 
-      (parsed.activePageId && mergedPages.some(p => p.id === parsed.activePageId && !p.isDeleted))
+    const validActivePageId =
+      (parsed.activePageId && sanitizedPages.some(p => p.id === parsed.activePageId && !p.isDeleted))
         ? parsed.activePageId
-        : (mergedPages.find(p => !p.isDeleted)?.id || mergedPages[0]?.id || INITIAL_WORKSPACE.activePageId);
+        : (sanitizedPages.find(p => !p.isDeleted)?.id || sanitizedPages[0]?.id || INITIAL_WORKSPACE.activePageId);
 
     return {
       settings: safeSettings,
-      pages: mergedPages,
+      pages: sanitizedPages,
       activePageId: validActivePageId
     };
   } catch (err) {
